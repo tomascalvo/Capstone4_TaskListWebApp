@@ -1,0 +1,237 @@
+Project Outline:
+Task Manager Web App
+GC C#.NET Core Capstone 4
+
+This project deploys all of the skills taught in GC C#.NET Core bootcamp weeks 1 - 6, including most recently ASP.NET Core MVC, Entity Framework, Identity Framework, and State Management.
+
+Procedure:
+
+//1. Create and configure an ASP.NET Core MVC web app in Visual Studio called Capstone4_TaskListWebApp. IMPORTANT: when configuring the VS project, choose Core version 3.1 and specify Individual User Accounts Authentication. These specifications are required in order to use Identity Framework to create a user authentication feature.
+
+//2. Install Entity Framework Core with the NuGet Package Manger Console:
+
+Install-Package Microsoft.EntityFrameworkCore.SqlServer
+Install-Package Microsoft.EntityFrameworkCore
+Install-Package Microsoft.EntityFrameworkCore.Tools
+
+//3. Code the Model classes. Do so by creating a Context folder. Add Model classes to the Context folder to be converted to tables. Code a Primary Key property called Id with automatic incrementation for each Model class. Code other properties as needed. Use data annotations for validation as needed.
+
+EG:
+
+public class Task
+{
+	//Properties: 
+	[Key] 
+	[DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+	public long Id { get; set; }
+	[MaxLength(30)]
+	public string Title { get; set; }
+	DateTime Deadline { get; set; }
+	public int WorkerId { get; set; }
+	[MaxLength(500)]
+	public string Description { get; set; }
+	//Constructor:
+	public Task() { }
+}
+
+public class Worker
+{
+	//Properties:
+	[Key]
+	[DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+	public long Id { get; set; }
+	[MaxLength(30)]
+	public string FirstName { get; set; }
+	[MaxLength(30)]
+	public string LastName { get; set; }
+	public int Salary { get; set; }
+	//Constructor:
+	public Worker() { }
+}
+
+//4. Configure the data context class for EF. Do so by adding a TaskDbContext class to the Context folder. 
+
+The data context class requires a using statement that refers to the entity framework core package.TaskDbContext inherits from base class DbContext. 
+DbContext has a property of type DbSet<Model> for each Model in the database. The constructor of TaskDbContext inherits from the base class. The constructor of TaskDbContext accepts one parameter of type DbContextOptions called "options".
+
+// EG:
+
+...
+using Microsoft.EntityFrameworkCore;
+
+namespace Capstone4_TaskListWebApp.Context
+{
+	public class TaskDbContext : DbContext
+	{
+		public DbSet<Task> Tasks { get; set; }
+		public DbSet<Worker> Workers { get; set; }
+
+		public TaskDbContext(DbContextOptions options) : base(options) 
+		{ 
+			Database.EnsureCreated();
+		}
+	}
+}
+
+// END EXAMPLE
+
+//5. Register the data context class with the dependency injection framework. Find the target server name.
+
+EG:
+localhost\SQLEXPRESS
+
+Choose an identifier for a new database.
+
+EG:
+TaskDb
+
+Overwrite the server and database in a connection string.
+
+EG:
+var connection = @"Server=localhost\SQLEXPRESS;Database=TaskDb;Trusted_Connection=True;ConnectRetryCount=0;"
+
+Open Startup.cs and navigate to the ConfigureServices() method. Paste the connection string variable in ConfigureServices(). Don't overwrite any existing statements within the ConfigureServices() code block.
+
+Still within the code block of ConfigureServices(), on the line below the connection string, add the DbContext to the services:
+
+EG:
+services.AddDbContext<TaskDbContext> (options => options.UseSqlServer(connection));
+
+Add using statements for Entity Framework Core to Startup.cs as needed.
+
+//6. Add Initial Migration. Begin by rebuilding the solution. Navigate to NuGet Package Manager Console. Execute the command to add the initial migration.
+
+EG:
+Add-Migration Initial
+
+Still in NuGet Package Manager Console, execute the command to update the database.
+
+EG:
+Update-Database
+
+Now the database and tables made in .NET are visible in SSMS. Check that the Tasks table has a primary key as expected. Run a test query.
+
+EG:
+
+INSERT INTO Tasks(Title, Deadline, WorkerId, Description)
+VALUES('Stake Trail Route', 2020-04-02, 1, 'Place stakes to mark the location of the trail. Favor high ground and avoid overlapping the trail with mature trees.'),
+('Clear Trail Route', 2020-04-05, 2, 'Remove any obstructions from the path to create 6' of clearance.'),
+('Stake Drains', 2020-04-06, 3, 'Place stakes to mark the locations of drains as needed.'),
+('Dig Drains', 2020-04-13, 2, 'Dig drains following the stakes to draw water away from the trail.');
+SELECT * FROM Tasks;
+
+//7. Connect the Controller to context. Do so by creating a private readonly property of type TaskContext called _context and a controller that accepts a parameter of type TaskContext called _context and sets the value of property this._context to the value of the parameter.
+
+EG:
+private readonly TaskContext _context;
+public HomeController(TaskContext _context)
+{
+	this._context = _context;
+} 
+
+//8. Pass the database to the index page for display. Do so by pulling a list out of the context with a controller action. In the code block of the controller action, create a list of the Model type and assign this list the value of the Model instances within _context. Return a View that accepts the Model list as a parameter.
+
+EG:
+public IActionResult Index() 
+{
+	List<Task> tasks = _context.Tasks.ToList();
+	return View(tasks);
+}
+
+//9. Display the database on Index.cshtml. Do so by referencing the context and the model using Razor and the '@' symbol.
+
+EG:
+@using Capstone4_TaskListWebApp.Context;
+@model IEnumerable<Capstone4_TaskListWebApp.Context.Task>
+
+Create a Razor loop to display all the properties of each record in the database.
+
+EG:
+
+@foreach(Task task in Model)
+{
+	<p>Task @task.Id: @task.Title</p>
+	<p>Deadline: @task.Deadline</p>
+	<p>Owner: @task.WorkerId</p>
+	<p>Description: @task.Description</p>
+}
+
+//10. Create CRUD actions to add tasks to the database, review tasks in the database, update tasks in the database as complete, and delete tasks from the database.
+
+//11. Create a form view to post newly created tasks to the task list database.
+
+//12. Use identity framework to create user authentication. Begin by navigating to the file appsettings.json and updating the connection string to match the connection string used earlier to configure method injection in Startup.cs.
+
+EG:
+var connection = @"Server=localhost\SQLEXPRESS;Database=TaskDb;Trusted_Connection=True;ConnectRetryCount=0;";
+
+Add user identity to services. Do so by navigating to Startup.cs. Insert the following expression:
+
+services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequiredConfirmedAccount = false)
+
+Confirm that the user identity feature is working correctly. Do so by running the code. Navigate to the user registration page, register a new identity and log in with the new identity. When prompted, run migrations and refresh the page.
+
+Check SSMS to confirm that the database and identity tabes have been created.
+
+//13. Establish a relationship between the Task table and the Worker table. Begin by identifying the type of relationship that exists between these tables. In the case of the Task and Worker tables, the relationship is Many to One with many tasks assigned to one worker.
+
+Navigate to the class file for the "One" table (Worker.cs). Insert the following line between the properties and the constructor.
+
+EG:
+public virtual ICollection<Task> Tasks { get; set; }
+
+This line indicates that table Workers has a collection of Tasks that belongs to it.
+
+Navigate to the class file for the "Many" table (Task.cs). Insert the following line between the properties and the constructor. This line represents the Foreign Key (FK) for Worker (One) to Task (Many).
+
+EG: 
+public int WorkerId { get; set; }
+
+EG:
+public virtual WorkerId { get; set; }
+
+In Task.cs, insert the following data annotation above the FK. This annotation links the WorkerId property of the Tasks table with the primary key of the task's WorkerId property.
+
+EG:
+[ForeignKey("WorkerId")]
+
+Execute the following NuGet Package Manager Console command.
+
+EG:
+Add-Migration relationshipMigration
+
+Execute the following NuGet Package Manager Console command.
+
+EG:
+Update-Database relationshipMigration
+
+Check the results of the update in SSMS. Make sure that the Workers table directory has a PK and that the Task table directory has a PK and an FK.
+
+14. Feed data into the database from VS. Do so by navigating to Context/TaskDbContext. Add the following method.
+
+EG:
+
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Task>().HasData(
+                new Task() { Id = 5, Title = 'Rake Dirt', Deadline = 2020-04-14, WorkerId = 1, Decription = 'Rake the dirt of the path to make it smooth.'},
+                new Task() { Id = 6, Title = 'Collect Chipping Matter', Deadline = 2020-04-15, WorkerId = 2, Decription = 'Collect debris from the forest floor, break it down into pieces not exceeding 3" in diameter and pile on the trail.'},
+                new Task() { Id = 7, Title = 'Chip Debris', Deadline = 2020-04-15, Worker Id = 3, Decription = 'Chip the debris and spread over the trail.'};
+            modelBuilder.Entity<Employee>().HasData(
+                new Worker() { Id = 1, FirstName = "Adam", LastName = "Venkman", Salary = 50000},
+                new Worker() { Id = 2, FirstName = "Eve",, LastName = "Venkman", Salary = 50000},
+                new Worker() { Id = 3, FirstName = "Abel" LastName = "Venkman", Salary = 45000},
+                new Employee() { Id = 4, FirstName = "Cain", Salary = 19000}
+                );
+        }
+
+Update the database with this new data by adding a new migration. Execute the following commands in the NuGet Package Manger Console.
+
+EG:
+
+Add-Migration dataMigration
+Update-Database dataMigration
+
+15. Add a feature that allows the user to create a new task. Put an "Add New Task" button on the Welcome page. Create a controller action with the [HttpGet] attribute to route the user to an AddTaskForm view. Create a controller action with the [HttpPost] attribute to recieve the user input from the form and route to the Welcome view or the LoginError view.
+
+16. Make sure that the Welcome view displays only those tasks assigned to the current user.
